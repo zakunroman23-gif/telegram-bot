@@ -4,20 +4,36 @@ import asyncio
 
 print("🔐 Вхідні дані для запуску Telegram-бота:")
 try:
-    api_id = int(input("Введіть свій api_id: "))
-    api_hash = input("Введіть свій api_hash: ")
-    chat_input = input("Введіть список чатів через кому (наприклад: t.me/group1,t.me/channel2): ")
-    target_chats = [chat.strip() for chat in chat_input.split(',')]
-    comment_text = input("Введіть текст коментаря, який має залишати бот: ")
 
-    client = TelegramClient('user_session', api_id, api_hash)
+api_id = int(input("api_id: "))
+api_hash = input("api_hash: ")
+chat_input = input("Список чатів (через кому): ")
+target_chats = [c.strip() for c in chat_input.split(',')]
+comment_text = input("Текст коментаря: ")
 
-    @client.on(events.NewMessage(chats=target_chats))
-    async def handler(event):
-        me = await client.get_me()
-        if event.sender_id != me.id:
-            await asyncio.sleep(2)
-            await event.reply(comment_text)
+client = TelegramClient('user_session', api_id, api_hash)
+
+async def comment_on_last_message():
+    for chat in target_chats:
+        try:
+            messages = await client.get_messages(chat, limit=1)
+            if messages:
+                message = messages[0]
+                # Щоб не дублювати, перевір чи ти вже коментував:
+                replies = await message.get_replies()
+                me = await client.get_me()
+                already_commented = any(reply.sender_id == me.id for reply in replies)
+                if not already_commented:
+                    await message.reply(comment_text)
+                    print(f"✅ Прокоментовано: {chat}")
+                else:
+                    print(f"⏭ Уже коментував у: {chat}")
+        except Exception as e:
+            print(f"⚠️ Помилка в {chat}: {e}")
+
+with client:
+    client.loop.run_until_complete(comment_on_last_message())
+    
 
     print("\n🚀 Бот запущено. Очікуємо нові повідомлення...")
     client.start()
